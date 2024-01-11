@@ -1,54 +1,92 @@
 package main
 
 import (
+	"errors"
 	"fmt"
-	"html/template"
-	"log"
+	"gggrents/golangproject/pkg/models"
 	"net/http"
 	"strconv"
+	"strings"
+	"unicode/utf8"
 )
-func home(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/" {
-	http.NotFound(w, r)
+func (app *application) home(w http.ResponseWriter, r *http.Request) {
+	// Because Pat matches the "/" path exactly, we can now remove the manual check
+	// Because Pat matches the "/" path exactly, we can now remove the manual check
+	// of r.URL.Path != "/" from this handler.
+	s, err := app.snippets.Latest()
+	if err != nil {
+	app.serverError(w, err)
 	return
 	}
-	// Initialize a slice containing the paths to the two files. Note that the
-	// home.page.tmpl file must be the *first* file in the slice.
-	files := []string{
-	"./ui/html/home.page.tmpl",
-	"./ui/html/base.layout.tmpl",
-	"./ui/html/footer.partial.tmpl",
-	
+	app.render(w, r, "home.page.tmpl", &templateData{
+	Snippets: s,
+	})
 	}
-	// Use the template.ParseFiles() function to read the files and store the
-	// templates in a template set. Notice that we can pass the slice of file paths
-	// as a variadic parameter?
-	ts, err := template.ParseFiles(files...)
-	if err != nil {
-	log.Println(err.Error())
-	http.Error(w, "Internal Server Error", 500)
+	func (app *application) showSnippet(w http.ResponseWriter, r *http.Request) {
+	// Pat doesn't strip the colon from the named capture key, so we need to
+	// get the value of ":id" from the query string instead of "id".
+	id, err := strconv.Atoi(r.URL.Query().Get(":id"))
+	if err != nil || id < 1 {
+	app.notFound(w)
 	return
 	}
-	err = ts.Execute(w, nil)
+	s, err := app.snippets.Get(id)
 	if err != nil {
-	log.Println(err.Error())
-	http.Error(w, "Internal Server Error", 500)
+	if errors.Is(err, models.ErrNoRecord) {
+	app.notFound(w)
+	} else {
+	app.serverError(w, err)
 	}
+	return
 	}
-	
-func showSnippet(w http.ResponseWriter, r *http.Request) {
-id, err := strconv.Atoi(r.URL.Query().Get("id"))
-if err != nil || id < 1 {
-http.NotFound(w, r)
-return
-}
-fmt.Fprintf(w, "Display a specific snippet with ID %d...", id)
-}
-func createSnippet(w http.ResponseWriter, r *http.Request) {
-if r.Method != http.MethodPost {
-w.Header().Set("Allow", http.MethodPost)
-http.Error(w, "Method Not Allowed", 405)
-return
-}
-w.Write([]byte("Create a new snippet..."))
-}
+	app.render(w, r, "show.page.tmpl", &templateData{
+	Snippet: s,
+	})
+	}
+	// Add a new createSnippetForm handler, which for now returns a placeholder response.
+	func (app *application) createSnippetForm(w http.ResponseWriter, r *http.Request) {
+		app.render(w, r, "create.page.tmpl", nil)
+		}
+		
+		func (app *application) createSnippet(w http.ResponseWriter, r *http.Request) {
+			err := r.ParseForm()
+			if err != nil {
+			app.clientError(w, http.StatusBadRequest)
+			return
+			}
+			title := r.PostForm.Get("title")
+			content := r.PostForm.Get("content")
+			expires := r.PostForm.Get("expires")
+			errors := make(map[string]string)
+			if strings.TrimSpace(title) == "" {
+			errors["title"] = "This field cannot be blank"
+			} else if utf8.RuneCountInString(title) > 100 {
+			errors["title"] = "This field is too long (maximum is 100 characters)"
+			}
+			if strings.TrimSpace(content) == "" {
+			errors["content"] = "This field cannot be blank"
+			}
+			if strings.TrimSpace(expires) == "" {
+			errors["expires"] = "This field cannot be blank"
+			} else if expires != "365" && expires != "7" && expires != "1" {
+			errors["expires"] = "This field is invalid"
+			}
+			// If there are any validation errors, re-display the create.page.tmpl
+			// template passing in the validation errors and previously submitted
+			// r.PostForm data.
+			if len(errors) > 0 {
+			app.render(w, r, "create.page.tmpl", &templateData{
+			FormErrors: errors,
+			FormData: r.PostForm,
+			})
+			return
+			}
+			id, err := app.snippets.Insert(title, content, expires)
+			if err != nil {
+			app.serverError(w, err)
+			return
+			}
+			http.Redirect(w, r, fmt.Sprintf("/snippet/%d", id), http.StatusSeeOther)
+			}
+			
+			
