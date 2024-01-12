@@ -36,3 +36,7 @@ default:
 return nil, models.ErrNoRecord
 }
 }
+
+func (m *UserModel) ChangePassword(int, string, string) error {
+	return nil
+	}

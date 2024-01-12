@@ -31,8 +31,10 @@ type application struct {
 	Insert(string, string, string) error
 	Authenticate(string, string) (int, error)
 	Get(int) (*models.User, error)
+	ChangePassword(int, string, string) error // Add the new method.
 	}
 	}
+	
 	func main() {
 		dsn := flag.String("dsn", "root:my-secret-pw@/snippetbox?parseTime=true", "MySQL data source name")
 		addr := flag.String("addr", ":4000", "HTTP network address")

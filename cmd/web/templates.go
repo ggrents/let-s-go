@@ -20,6 +20,7 @@ type templateData struct {
 	IsAuthenticated bool
 	Snippet *models.Snippet
 	Snippets []*models.Snippet
+	User *models.User // Add a User field.
 	}
 
 	func humanDate(t time.Time) string {
