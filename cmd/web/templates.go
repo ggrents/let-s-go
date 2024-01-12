@@ -1,9 +1,9 @@
 package main
 
 import (
+	"gggrents/golangproject/pkg/forms"
 	"gggrents/golangproject/pkg/models"
 	"html/template" // New import
-	"net/url"
 	"path/filepath" // New import
 	"time"
 )
@@ -13,15 +13,22 @@ import (
 // At the moment it only contains one field, but we'll add more
 // to it as the build progresses.
 type templateData struct {
+	CSRFToken string
 	CurrentYear int
-	FormData url.Values
-	FormErrors map[string]string
+	Flash string
+	Form *forms.Form
+	IsAuthenticated bool
 	Snippet *models.Snippet
 	Snippets []*models.Snippet
 	}
 
 	func humanDate(t time.Time) string {
-		return t.Format("02 Jan 2006 at 15:04")
+		// Return the empty string if time has the zero value.
+		if t.IsZero() {
+		return ""
+		}
+		// Convert the time to UTC before formatting it.
+		return t.UTC().Format("02 Jan 2006 at 15:04")
 		}
 		// Initialize a template.FuncMap object and store it in a global variable. This is
 		// essentially a string-keyed map which acts as a lookup between the names of our

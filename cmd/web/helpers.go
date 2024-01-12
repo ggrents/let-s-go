@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"runtime/debug"
 	"time"
+
+	"github.com/justinas/nosurf"
 )
 
 // The serverError helper writes an error message and stack trace to the errorLog,
@@ -15,6 +17,15 @@ func (app *application) serverError(w http.ResponseWriter, err error) {
 	app.errorLog.Output(2, trace)
 	http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 	}
+
+	func (app *application) isAuthenticated(r *http.Request) bool {
+		isAuthenticated, ok := r.Context().Value(contextKeyIsAuthenticated).(bool)
+		if !ok {
+		return false
+		}
+		return isAuthenticated
+		}
+		
 	
 // The clientError helper sends a specific status code and corresponding description
 // to the user. We'll use this later in the book to send responses like 400 "Bad
@@ -34,9 +45,14 @@ func (app *application) addDefaultData(td *templateData, r *http.Request) *templ
 	if td == nil {
 	td = &templateData{}
 	}
+	// Add the CSRF token to the templateData struct.
+	td.CSRFToken = nosurf.Token(r)
 	td.CurrentYear = time.Now().Year()
+	td.Flash = app.session.PopString(r, "flash")
+	td.IsAuthenticated = app.isAuthenticated(r)
 	return td
 	}
+	
 	func (app *application) render(w http.ResponseWriter, r *http.Request, name string, td *templateData) {
 	ts, ok := app.templateCache[name]
 	if !ok {
